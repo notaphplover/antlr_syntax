@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod test {
     mod parse_from_tokens {
+        use crate::ast::abstract_syntax_tree::AbstractSyntaxTree;
+        use crate::ast::abstract_syntax_node::AbstractSyntaxNode;
         use crate::grammar::context_free_grammar_production::ContextFreeGrammarProduction;
         use crate::grammar::context_free_grammar::ContextFreeGrammar;
         use crate::parser::recursive_descent_parser::RecursiveDescentParser;
-        use crate::ast::abstract_syntax_tree::AbstractSyntaxTree;
-        use crate::ast::abstract_syntax_node::AbstractSyntaxNode;
+        use crate::token::token::Token;
 
         fn ast_equals<T: PartialEq>(
             first_ast: &AbstractSyntaxTree<T>,
@@ -62,11 +63,10 @@ mod test {
             let recursive_descent_parser: RecursiveDescentParser<DummySyntaxTokenTest>
                 = RecursiveDescentParser::from_grammar(&grammar);
 
-            let ast =
-                recursive_descent_parser
-                    .parse_from_tokens(vec![].into_iter());
-
-            assert!(ast.is_some());
+            recursive_descent_parser
+                .parse_from_tokens::<u64, std::vec::IntoIter<Token<u64, DummySyntaxTokenTest>>>(
+                    vec![].into_iter(),
+                );
         }
 
         #[test]
@@ -95,17 +95,19 @@ mod test {
 
             let ast =
                 recursive_descent_parser
-                    .parse_from_tokens(vec![&DummySyntaxTokenTest::Eof].into_iter())
+                    .parse_from_tokens(vec![
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
+                    ].into_iter())
                     .unwrap();
 
             let expected_asn = AbstractSyntaxNode::new(
                 vec![
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S),
             );
 
             let expected_ast = AbstractSyntaxTree::new(expected_asn);
@@ -144,7 +146,9 @@ mod test {
 
             let ast =
                 recursive_descent_parser
-                    .parse_from_tokens(vec![&DummySyntaxTokenTest::Eof].into_iter())
+                    .parse_from_tokens(vec![
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof)
+                    ].into_iter())
                     .unwrap();
 
             let expected_asn = AbstractSyntaxNode::new(
@@ -153,17 +157,17 @@ mod test {
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::Epsilon
+                                Token::new(None, DummySyntaxTokenTest::Epsilon)
                             ),
                         ],
-                        DummySyntaxTokenTest::Empty
+                        Token::new(None, DummySyntaxTokenTest::Empty)
                     ),
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof)
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S)
             );
 
             let expected_ast = AbstractSyntaxTree::new(expected_asn);
@@ -217,9 +221,9 @@ mod test {
                 recursive_descent_parser
                     .parse_from_tokens(
                         vec![
-                            &DummySyntaxTokenTest::CommonTerminal,
-                            &DummySyntaxTokenTest::ATerminal,
-                            &DummySyntaxTokenTest::Eof,
+                            Token::new(Some(0u64), DummySyntaxTokenTest::CommonTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
                     .unwrap();
@@ -230,21 +234,21 @@ mod test {
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::CommonTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::CommonTerminal),
                             ),
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::ATerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
                             ),
                         ],
-                        DummySyntaxTokenTest::A
+                        Token::new(None, DummySyntaxTokenTest::A),
                     ),
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S)
             );
 
             let a_expected_ast = AbstractSyntaxTree::new(a_expected_asn);
@@ -253,9 +257,9 @@ mod test {
                 recursive_descent_parser
                     .parse_from_tokens(
                         vec![
-                            &DummySyntaxTokenTest::CommonTerminal,
-                            &DummySyntaxTokenTest::BTerminal,
-                            &DummySyntaxTokenTest::Eof,
+                            Token::new(Some(0u64), DummySyntaxTokenTest::CommonTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
                     .unwrap();
@@ -266,21 +270,21 @@ mod test {
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::CommonTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::CommonTerminal)
                             ),
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::BTerminal
+                                Token::new(None, DummySyntaxTokenTest::BTerminal)
                             ),
                         ],
-                        DummySyntaxTokenTest::B
+                        Token::new(None, DummySyntaxTokenTest::B)
                     ),
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof)
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S)
             );
 
             let b_expected_ast = AbstractSyntaxTree::new(b_expected_asn);
@@ -340,10 +344,10 @@ mod test {
                 recursive_descent_parser
                     .parse_from_tokens(
                         vec![
-                            &DummySyntaxTokenTest::ATerminal,
-                            &DummySyntaxTokenTest::BTerminal,
-                            &DummySyntaxTokenTest::CTerminal,
-                            &DummySyntaxTokenTest::Eof,
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::CTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
                     .unwrap();
@@ -354,30 +358,30 @@ mod test {
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::ATerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
                             ),
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::BTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
                             ),
                         ],
-                        DummySyntaxTokenTest::A
+                        Token::new(None, DummySyntaxTokenTest::A),
                     ),
                     AbstractSyntaxNode::new(
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::CTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::CTerminal),
                             ),
                         ],
-                        DummySyntaxTokenTest::B
+                        Token::new(None, DummySyntaxTokenTest::B)
                     ),
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(None, DummySyntaxTokenTest::Eof)
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S)
             );
 
             let abc_expected_ast = AbstractSyntaxTree::new(abc_expected_asn);
@@ -386,11 +390,11 @@ mod test {
                 recursive_descent_parser
                     .parse_from_tokens(
                         vec![
-                            &DummySyntaxTokenTest::ATerminal,
-                            &DummySyntaxTokenTest::BTerminal,
-                            &DummySyntaxTokenTest::CTerminal,
-                            &DummySyntaxTokenTest::DTerminal,
-                            &DummySyntaxTokenTest::Eof,
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::CTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::DTerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
                     .unwrap();
@@ -401,34 +405,34 @@ mod test {
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::ATerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal)
                             ),
                         ],
-                        DummySyntaxTokenTest::A
+                        Token::new(None, DummySyntaxTokenTest::A)
                     ),
                     AbstractSyntaxNode::new(
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::BTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal)
                             ),
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::CTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::CTerminal)
                             ),
                             AbstractSyntaxNode::new(
                                 vec![],
-                                DummySyntaxTokenTest::DTerminal
+                                Token::new(Some(0u64), DummySyntaxTokenTest::DTerminal)
                             ),
                         ],
-                        DummySyntaxTokenTest::B
+                        Token::new(None, DummySyntaxTokenTest::B)
                     ),
                     AbstractSyntaxNode::new(
                         vec![],
-                        DummySyntaxTokenTest::Eof
+                        Token::new(Some(0u64), DummySyntaxTokenTest::Eof)
                     ),
                 ],
-                DummySyntaxTokenTest::S
+                Token::new(None, DummySyntaxTokenTest::S)
             );
 
             let abcd_expected_ast = AbstractSyntaxTree::new(abcd_expected_asn);

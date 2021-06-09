@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
+## v0.2.0
+- [BC] Updated `recursive_descent_parser` to receive an iterator of `Token<TLex, TSyntax>>`.
+
+
+
+
 ## v0.1.0
 
 ### Added
