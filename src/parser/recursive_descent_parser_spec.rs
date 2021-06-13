@@ -5,6 +5,8 @@ mod test {
         use crate::ast::abstract_syntax_node::AbstractSyntaxNode;
         use crate::grammar::context_free_grammar_production::ContextFreeGrammarProduction;
         use crate::grammar::context_free_grammar::ContextFreeGrammar;
+        use crate::parser::failed_production::FailedProduction;
+        use crate::parser::failed_state::FailedState;
         use crate::parser::recursive_descent_parser::RecursiveDescentParser;
         use crate::token::token::Token;
 
@@ -39,6 +41,64 @@ mod test {
             true
         }
 
+        fn failed_states_equals<TLex: PartialEq, TSyntax: PartialEq>(
+            first_failed_state: &FailedState<TLex, TSyntax>,
+            second_failed_state: &FailedState<TLex, TSyntax>,
+        ) -> bool {
+            if first_failed_state.symbol_to_derive.ne(&second_failed_state.symbol_to_derive) {
+                return false;
+            }
+
+            if first_failed_state.failed_productions.len() != second_failed_state.failed_productions.len() {
+                return false;
+            }
+
+            for i in 0.. first_failed_state.failed_productions.len() {
+                if !failed_productions_equals(
+                    first_failed_state.failed_productions.get(i).unwrap(),
+                    second_failed_state.failed_productions.get(i).unwrap(),
+                ) {
+                    return false;
+                }
+            }
+
+            true
+        }
+
+        fn failed_productions_equals<TLex: PartialEq, TSyntax: PartialEq>(
+            first_failed_production: &FailedProduction<TLex, TSyntax>,
+            second_failed_production: &FailedProduction<TLex, TSyntax>,
+        ) -> bool {
+            if first_failed_production.parsed_symbols.len() != second_failed_production.parsed_symbols.len() {
+                return false;
+            }
+
+            if first_failed_production.pending_symbols.len() != second_failed_production.pending_symbols.len() {
+                return false;
+            }
+
+            for i in 0..first_failed_production.parsed_symbols.len() {
+                if !asn_equals(
+                    first_failed_production.parsed_symbols.get(i).unwrap(),
+                    second_failed_production.parsed_symbols.get(i).unwrap(),
+                ) {
+                    return false;
+                }
+            }
+
+            for i in 0..first_failed_production.pending_symbols.len() {
+                if !failed_states_equals(
+                    first_failed_production.pending_symbols.get(i).unwrap(),
+                    second_failed_production.pending_symbols.get(i).unwrap(),
+                ) {
+                    return false;
+                }
+            }
+
+            true
+        }
+
+        #[allow(unused_must_use)]
         #[test]
         #[should_panic]
         fn it_does_not_parse_empty_input() -> () {
@@ -98,7 +158,7 @@ mod test {
                     .parse_from_tokens(vec![
                         Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                     ].into_iter())
-                    .unwrap();
+                    .ok().unwrap();
 
             let expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -149,7 +209,7 @@ mod test {
                     .parse_from_tokens(vec![
                         Token::new(Some(0u64), DummySyntaxTokenTest::Eof)
                     ].into_iter())
-                    .unwrap();
+                    .ok().unwrap();
 
             let expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -226,7 +286,7 @@ mod test {
                             Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
-                    .unwrap();
+                    .ok().unwrap();
 
             let a_expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -262,7 +322,7 @@ mod test {
                             Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
-                    .unwrap();
+                    .ok().unwrap();
 
             let b_expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -350,7 +410,7 @@ mod test {
                             Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
-                    .unwrap();
+                    .ok().unwrap();
 
             let abc_expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -397,7 +457,7 @@ mod test {
                             Token::new(Some(0u64), DummySyntaxTokenTest::Eof),
                         ].into_iter()
                     )
-                    .unwrap();
+                    .ok().unwrap();
 
             let abcd_expected_asn = AbstractSyntaxNode::new(
                 vec![
@@ -439,6 +499,238 @@ mod test {
 
             assert!(ast_equals(&abc_ast, &abc_expected_ast));
             assert!(ast_equals(&abcd_ast, &abcd_expected_ast));
+        }
+
+        #[test]
+        fn it_fails_on_unexpected_symbol_when_no_production_is_found() -> () {
+            #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+            enum DummySyntaxTokenTest {
+                ATerminal,
+                BTerminal,
+                Epsilon,
+                S,
+            }
+
+            let grammar_productions: Vec<ContextFreeGrammarProduction<DummySyntaxTokenTest>> = vec![
+                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                    DummySyntaxTokenTest::ATerminal,
+                ]),
+            ];
+
+            let grammar: ContextFreeGrammar<DummySyntaxTokenTest> = ContextFreeGrammar::new(
+                DummySyntaxTokenTest::Epsilon,
+                DummySyntaxTokenTest::S,
+                grammar_productions,
+            );
+
+            let recursive_descent_parser: RecursiveDescentParser<DummySyntaxTokenTest>
+                = RecursiveDescentParser::from_grammar(&grammar);
+
+            let failed_state =
+                recursive_descent_parser
+                    .parse_from_tokens(
+                        vec![
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                        ].into_iter()
+                    )
+                    .err().unwrap();
+
+            let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
+                vec![],
+                DummySyntaxTokenTest::S,
+            );
+
+            assert!(failed_states_equals(&failed_state, &expected_failed_state));
+        }
+
+        #[test]
+        fn it_fails_on_unexpected_symbol_when_a_production_is_found() -> () {
+            #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+            enum DummySyntaxTokenTest {
+                ATerminal,
+                BTerminal,
+                Epsilon,
+                S,
+            }
+
+            let grammar_productions: Vec<ContextFreeGrammarProduction<DummySyntaxTokenTest>> = vec![
+                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                    DummySyntaxTokenTest::ATerminal,
+                    DummySyntaxTokenTest::ATerminal,
+                ]),
+            ];
+
+            let grammar: ContextFreeGrammar<DummySyntaxTokenTest> = ContextFreeGrammar::new(
+                DummySyntaxTokenTest::Epsilon,
+                DummySyntaxTokenTest::S,
+                grammar_productions,
+            );
+
+            let recursive_descent_parser: RecursiveDescentParser<DummySyntaxTokenTest>
+                = RecursiveDescentParser::from_grammar(&grammar);
+
+            let failed_state =
+                recursive_descent_parser
+                    .parse_from_tokens(
+                        vec![
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                        ].into_iter()
+                    )
+                    .err().unwrap();
+
+            let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
+                vec![
+                    FailedProduction::new(
+                        vec![
+                            AbstractSyntaxNode::new(
+                                vec![],
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            ),
+                        ], 
+                        vec![
+                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal)
+                        ],
+                    ),
+                ],
+                DummySyntaxTokenTest::S,
+            );
+
+            assert!(failed_states_equals(&failed_state, &expected_failed_state));
+        }
+
+        #[test]
+        fn it_fails_on_unexpected_symbol_when_a_production_is_found_with_parsed_symbols_ordered() -> () {
+            #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+            enum DummySyntaxTokenTest {
+                ATerminal,
+                BTerminal,
+                Epsilon,
+                S,
+            }
+
+            let grammar_productions: Vec<ContextFreeGrammarProduction<DummySyntaxTokenTest>> = vec![
+                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                    DummySyntaxTokenTest::ATerminal,
+                    DummySyntaxTokenTest::BTerminal,
+                    DummySyntaxTokenTest::ATerminal,
+                ]),
+            ];
+
+            let grammar: ContextFreeGrammar<DummySyntaxTokenTest> = ContextFreeGrammar::new(
+                DummySyntaxTokenTest::Epsilon,
+                DummySyntaxTokenTest::S,
+                grammar_productions,
+            );
+
+            let recursive_descent_parser: RecursiveDescentParser<DummySyntaxTokenTest>
+                = RecursiveDescentParser::from_grammar(&grammar);
+
+            let failed_state =
+                recursive_descent_parser
+                    .parse_from_tokens(
+                        vec![
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                        ].into_iter()
+                    )
+                    .err().unwrap();
+
+            let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
+                vec![
+                    FailedProduction::new(
+                        vec![
+                            AbstractSyntaxNode::new(
+                                vec![],
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            ),
+                            AbstractSyntaxNode::new(
+                                vec![],
+                                Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                            ),
+                        ], 
+                        vec![
+                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal)
+                        ],
+                    ),
+                ],
+                DummySyntaxTokenTest::S,
+            );
+
+            assert!(failed_states_equals(&failed_state, &expected_failed_state));
+        }
+
+        #[test]
+        fn it_fails_on_unexpected_symbol_when_multiple_productions_are_found() -> () {
+            #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+            enum DummySyntaxTokenTest {
+                ATerminal,
+                BTerminal,
+                Epsilon,
+                S,
+            }
+
+            let grammar_productions: Vec<ContextFreeGrammarProduction<DummySyntaxTokenTest>> = vec![
+                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                    DummySyntaxTokenTest::ATerminal,
+                    DummySyntaxTokenTest::ATerminal,
+                ]),
+                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                    DummySyntaxTokenTest::ATerminal,
+                    DummySyntaxTokenTest::ATerminal,
+                    DummySyntaxTokenTest::ATerminal,
+                ]),
+            ];
+
+            let grammar: ContextFreeGrammar<DummySyntaxTokenTest> = ContextFreeGrammar::new(
+                DummySyntaxTokenTest::Epsilon,
+                DummySyntaxTokenTest::S,
+                grammar_productions,
+            );
+
+            let recursive_descent_parser: RecursiveDescentParser<DummySyntaxTokenTest>
+                = RecursiveDescentParser::from_grammar(&grammar);
+
+            let failed_state =
+                recursive_descent_parser
+                    .parse_from_tokens(
+                        vec![
+                            Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
+                        ].into_iter()
+                    )
+                    .err().unwrap();
+
+            let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
+                vec![
+                    FailedProduction::new(
+                        vec![
+                            AbstractSyntaxNode::new(
+                                vec![],
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            ),
+                        ], 
+                        vec![
+                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
+                        ],
+                    ),
+                    FailedProduction::new(
+                        vec![
+                            AbstractSyntaxNode::new(
+                                vec![],
+                                Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
+                            ),
+                        ], 
+                        vec![
+                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
+                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
+                        ],
+                    ),
+                ],
+                DummySyntaxTokenTest::S,
+            );
+
+            assert!(failed_states_equals(&failed_state, &expected_failed_state));
         }
     }
 }

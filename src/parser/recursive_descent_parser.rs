@@ -1,27 +1,40 @@
 use std::hash::Hash;
 
-use crate::grammar::context_free_grammar::ContextFreeGrammar;
-use crate::grammar::first_follow_symbols::FirstFollowSymbols;
-use crate::parser::recursive_descent_parser_transitions::RecursiveDescentParserTransitions;
 use crate::ast::abstract_syntax_node::AbstractSyntaxNode;
 use crate::ast::abstract_syntax_tree::AbstractSyntaxTree;
+use crate::grammar::context_free_grammar::ContextFreeGrammar;
+use crate::grammar::first_follow_symbols::FirstFollowSymbols;
+use crate::parser::failed_production::FailedProduction;
+use crate::parser::failed_state::FailedState;
+use crate::parser::parse_result::ParseResult;
+use crate::parser::recursive_descent_parser_transitions::RecursiveDescentParserTransitions;
 use crate::token::token::Token;
 
-struct RecursiveDescentParsingState<'a, TLex, TSyntax: 'a, TIter: Iterator<Item=&'a Vec<TSyntax>>> {
+type ParseProductionResult<TLex, TSyntax> = Result<
+    AbstractSyntaxNode<Token<TLex, TSyntax>>,
+    FailedProduction<TLex, TSyntax>,
+>;
+
+type ParseSymbolResult<'a, TLex, TSyntax> = Result<
+    ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>,
+    FailedState<TLex, TSyntax>,
+>;
+
+struct ParsingState<'a, TLex, TSyntax: 'a, TIter: Iterator<Item=&'a Vec<TSyntax>>> {
     initial_token_position: usize,
     final_token_position: usize,
     prod_iter_option: Option<TIter>,
     node: AbstractSyntaxNode<Token<TLex, TSyntax>>
 }
 
-impl<'a, TLex, TSyntax, TIter: Iterator<Item=&'a Vec<TSyntax>>> RecursiveDescentParsingState<'a, TLex, TSyntax, TIter> {
+impl<'a, TLex, TSyntax, TIter: Iterator<Item=&'a Vec<TSyntax>>> ParsingState<'a, TLex, TSyntax, TIter> {
     pub fn new(
         initial_token_position: usize,
         final_token_position: usize,
         prod_iter_option: Option<TIter>,
         node: AbstractSyntaxNode<Token<TLex, TSyntax>>,
     ) -> Self {
-        Self { initial_token_position, final_token_position, prod_iter_option, node }
+        ParsingState { initial_token_position, final_token_position, prod_iter_option, node }
     }
 }
 
@@ -50,7 +63,7 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
     pub fn parse_from_tokens<TLex: Clone + 'a, TIter: Iterator<Item=Token<TLex, TSyntax>>>(
         &self,
         tokens_iterator: TIter,
-    ) -> Option<AbstractSyntaxTree<Token<TLex, TSyntax>>> {
+    ) -> ParseResult<TLex, TSyntax> {
         let tokens_vector = Self::iterator_to_vec(tokens_iterator);
 
         if tokens_vector.len() == 0 {
@@ -66,17 +79,21 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
 
         let first_token_productions_iter = first_token_productions.into_iter();
 
-        let state = self.inner_parse_from_tokens(
+        let state_result = self.inner_parse_from_tokens(
             symbol_to_derive,
             &tokens_vector,
             token_position,
             first_token_productions_iter,
         );
 
-        state.map(
-            |state|
-                AbstractSyntaxTree::new(state.node)
-        )
+        state_result.map(|state| AbstractSyntaxTree::new(state.node))
+    }
+
+    fn build_token_failed_state<TLex: Clone>(
+        production_symbol: &TSyntax,
+    ) -> ParseSymbolResult<'a, TLex, TSyntax> {
+        let failed_state = FailedState::new(vec![], production_symbol.clone());
+        Err(failed_state)
     }
 
     fn inner_get_token_productions(
@@ -102,10 +119,11 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
         tokens: &Vec<Token<TLex, TSyntax>>,
         tokens_position: usize,
         mut production_outputs: std::vec::IntoIter<&'a Vec<TSyntax>>,
-    ) -> Option<RecursiveDescentParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>> {
-        let mut current_token_position = tokens_position;
+    ) -> ParseSymbolResult<'a, TLex, TSyntax> {
+        let mut failed_productions: Vec<FailedProduction<TLex, TSyntax>> = vec![];
 
         for production_output in &mut production_outputs {
+            let mut current_token_position = tokens_position;
             let node_option = self.inner_parse_from_tokens_production(
                 symbol_to_derive,
                 tokens,
@@ -114,21 +132,24 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
             );
 
             match node_option {
-                Some(node) => {
-                    let state = RecursiveDescentParsingState::new(
+                Ok(node) => {
+                    return Ok(ParsingState::new(
                         tokens_position,
                         current_token_position,
                         Some(production_outputs),
                         node,
-                    );
-    
-                    return Some(state);
+                    ));
                 },
-                _ => {}
+                Err(failed_production) => {
+                    failed_productions.push(failed_production);
+                }
             }
         }
 
-        None
+        Err(FailedState::new(
+            failed_productions,
+            symbol_to_derive.clone(),
+        ))
     }
 
     fn inner_parse_from_tokens_production<TLex: Clone>(
@@ -137,8 +158,8 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
         tokens: &Vec<Token<TLex, TSyntax>>,
         current_token_position: &mut usize,
         production_output: &'a Vec<TSyntax>,
-    ) -> Option<AbstractSyntaxNode<Token<TLex, TSyntax>>> {
-        let mut states: Vec<RecursiveDescentParsingState<'_, TLex, TSyntax, std::vec::IntoIter<&Vec<TSyntax>>>> = Vec::new();
+    ) -> ParseProductionResult<TLex, TSyntax> {
+        let mut states: Vec<ParsingState<'_, TLex, TSyntax, std::vec::IntoIter<&Vec<TSyntax>>>> = Vec::new();
 
         while states.len() < production_output.len() {
             let production_symbol = production_output.get(states.len()).unwrap();
@@ -149,48 +170,78 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
             );
 
             match state_option {
-                Some(state) => {
+                Ok(state) => {
                     *current_token_position = state.final_token_position;
                     states.push(state);
                 }
-                _ => {
-                    if self.inner_parse_pop_states(&mut states, tokens) {
-                        *current_token_position = states.get(
-                            states.len() - 1
-                        ).unwrap().final_token_position
-                    } else {
-                        break;
+                Err(failed_state) => {
+                    match self.inner_parse_pop_states(&mut states, tokens) {
+                        Some(production_parsing_states) => {
+                            return Self::inner_parse_from_tokens_production_build_failed_state(
+                                failed_state,
+                                production_output,
+                                production_parsing_states,
+                            );
+                        },
+                        None => {
+                            *current_token_position = states.get(
+                                states.len() - 1
+                            ).unwrap().final_token_position;
+                        }
                     }
                 }
             }
         }
 
-        let child_nodes: Vec<AbstractSyntaxNode<Token<TLex, TSyntax>>> =
-            states.into_iter().map(|state| state.node).collect();
-
-        Self::inner_parse_from_tokens_production_build_state(
+        Self::inner_parse_from_tokens_production_build_node(
             symbol_to_derive,
-            production_output,
-            child_nodes,
+            states,
         )
     }
 
-    fn inner_parse_from_tokens_production_build_state<TLex>(
-        symbol_to_derive: &TSyntax,
-        production_output: &'a Vec<TSyntax>,
-        child_nodes: Vec<AbstractSyntaxNode<Token<TLex, TSyntax>>>,
-    ) -> Option<AbstractSyntaxNode<Token<TLex, TSyntax>>> {
-        if child_nodes.len() == production_output.len() {
-            let node: AbstractSyntaxNode<Token<TLex, TSyntax>>
-                = AbstractSyntaxNode::new(
-                child_nodes,
-                Token::new(None, symbol_to_derive.clone()),
-            );
+    fn inner_parse_from_tokens_production_build_failed_state<'b, TLex>(
+        failed_state: FailedState<TLex, TSyntax>,
+        production_output: &Vec<TSyntax>,
+        production_parsing_states: Vec<
+            ParsingState<'b, TLex, TSyntax, std::vec::IntoIter<&'b Vec<TSyntax>>>
+        >,
+    ) -> ParseProductionResult<TLex, TSyntax> {
+        let mut pending_symbols: Vec<FailedState<TLex, TSyntax>> = vec![failed_state];
 
-            Some(node)
-        } else {
-            None
+        let child_nodes: Vec<AbstractSyntaxNode<Token<TLex, TSyntax>>> =
+            production_parsing_states.into_iter().map(|state| state.node).collect();
+
+        for i in child_nodes.len() + 1 .. production_output.len() {
+            pending_symbols.push(
+                FailedState::new(
+                    vec![],
+                    production_output.get(i).unwrap().clone(),
+                ),
+            );
         }
+        
+        let failing_state: FailedProduction<TLex, TSyntax> = FailedProduction::new(
+            child_nodes,
+            pending_symbols,
+        );
+
+        Err(failing_state)
+    }
+
+    fn inner_parse_from_tokens_production_build_node<'b, TLex>(
+        symbol_to_derive: &TSyntax,
+        states: Vec<ParsingState<'b, TLex, TSyntax, std::vec::IntoIter<&'b Vec<TSyntax>>>>
+    ) -> ParseProductionResult<TLex, TSyntax> {
+        let child_nodes: Vec<AbstractSyntaxNode<Token<TLex, TSyntax>>> =
+            states.into_iter().map(|state| state.node).collect();
+
+        let node: AbstractSyntaxNode<Token<TLex, TSyntax>>
+            = AbstractSyntaxNode::new(
+            child_nodes,
+            Token::new(None, symbol_to_derive.clone()),
+        );
+
+        Ok(node)
     }
 
     fn inner_parse_from_tokens_production_non_terminal<TLex: Clone>(
@@ -198,7 +249,7 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
         production_symbol: &TSyntax,
         tokens: &Vec<Token<TLex, TSyntax>>,
         token_position: usize,
-    ) -> Option<RecursiveDescentParsingState<'_, TLex, TSyntax, std::vec::IntoIter<&'_ Vec<TSyntax>>>> {
+    ) -> ParseSymbolResult<TLex, TSyntax> {
         let current_token_symbol = tokens.get(token_position).unwrap();
 
         let token_productions = self.inner_get_token_productions(
@@ -216,37 +267,56 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
         )
     }
 
-    fn inner_parse_from_tokens_production_terminal<TLex: Clone>(
+    fn inner_parse_terminal_symbol<TLex: Clone>(
         &self,
         production_symbol: &TSyntax,
         tokens: &Vec<Token<TLex, TSyntax>>,
         token_position: usize,
-    ) -> Option<RecursiveDescentParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>> {
+    ) -> ParseSymbolResult<'a, TLex, TSyntax> {
         if self.grammar.get_epsilon_symbol().eq(production_symbol) {
-            let state: RecursiveDescentParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>
-                = RecursiveDescentParsingState::new(
+            let state: ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>
+                = ParsingState::new(
                 token_position,
                 token_position,
                 None,
                 AbstractSyntaxNode::new(vec![], Token::new(None, production_symbol.clone())),
             );
 
-            Some(state)
+            Ok(state)
         } else {
-            let current_token_symbol = tokens.get(token_position).unwrap();
+            Self::inner_parse_non_epsilon_terminal_symbol(
+                production_symbol,
+                tokens,
+                token_position,
+            )
+        }
+    }
 
-            if production_symbol.eq(&current_token_symbol.t_type) {
-                let state: RecursiveDescentParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>
-                    = RecursiveDescentParsingState::new(
-                    token_position,
-                    token_position + 1,
-                    None,
-                    AbstractSyntaxNode::new(vec![], current_token_symbol.clone())
-                );
+    fn inner_parse_non_epsilon_terminal_symbol<TLex: Clone>(
+        production_symbol: &TSyntax,
+        tokens: &Vec<Token<TLex, TSyntax>>,
+        token_position: usize,
+    ) -> ParseSymbolResult<'a, TLex, TSyntax> {
+        let current_token_symbol_option = tokens.get(token_position);
 
-                Some(state)
-            } else {
-                None
+        match current_token_symbol_option {
+            Some(current_token_symbol) => {
+                if production_symbol.eq(&current_token_symbol.t_type) {
+                    let state: ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>
+                        = ParsingState::new(
+                        token_position,
+                        token_position + 1,
+                        None,
+                        AbstractSyntaxNode::new(vec![], current_token_symbol.clone())
+                    );
+    
+                    Ok(state)
+                } else {
+                    Self::build_token_failed_state(production_symbol)
+                }
+            },
+            None => {
+                Self::build_token_failed_state(production_symbol)
             }
         }
     }
@@ -256,7 +326,7 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
         production_symbol: &TSyntax,
         tokens: &Vec<Token<TLex, TSyntax>>,
         token_position: usize,
-    ) -> Option<RecursiveDescentParsingState<'_, TLex, TSyntax, std::vec::IntoIter<&'_ Vec<TSyntax>>>> {
+    ) -> ParseSymbolResult<TLex, TSyntax> {
         if self.grammar.is_non_terminal(production_symbol) {
             self.inner_parse_from_tokens_production_non_terminal(
                 production_symbol,
@@ -264,7 +334,7 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
                 token_position,
             )
         } else {
-            self.inner_parse_from_tokens_production_terminal(
+            self.inner_parse_terminal_symbol(
                 production_symbol,
                 tokens,
                 token_position,
@@ -274,36 +344,43 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
 
     fn inner_parse_pop_states<TLex: Clone>(
         &self,
-        states: &mut Vec<RecursiveDescentParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>>,
+        states: &mut Vec<ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>>,
         tokens: &Vec<Token<TLex, TSyntax>>,
-    ) -> bool {
+    ) -> Option<Vec<ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>>> {
+        let mut reversed_failed_states: Vec<ParsingState<'a, TLex, TSyntax, std::vec::IntoIter<&'a Vec<TSyntax>>>> = vec![];
         let mut states_pop_success: bool = false;
 
         while states.len() > 0 && !states_pop_success {
             let last_state = states.pop().unwrap();
 
-            match last_state.prod_iter_option {
-                Some(productions_iterator) => {
-                    let state_option = self.inner_parse_from_tokens(
-                        &last_state.node.token.t_type,
-                        tokens,
-                        last_state.initial_token_position,
-                        productions_iterator,
-                    );
+            if last_state.prod_iter_option.is_some() {
+                let productions_iterator = last_state.prod_iter_option.unwrap();
 
-                    match state_option {
-                        Some(state) => {
-                            states.push(state);
-                            states_pop_success = true;
-                        }
-                        _ => {  }
+                let state_option = self.inner_parse_from_tokens(
+                    &last_state.node.token.t_type,
+                    tokens,
+                    last_state.initial_token_position,
+                    productions_iterator,
+                );
+
+                match state_option {
+                    Ok(state) => {
+                        states.push(state);
+                        states_pop_success = true;
                     }
+                    _ => { }
                 }
-                _ => { }
+            } else {
+                reversed_failed_states.push(last_state);
             }
         }
 
-        states_pop_success
+        if states_pop_success {
+            None
+        } else {
+            reversed_failed_states.reverse();
+            Some(reversed_failed_states)
+        }
     }
 }
 
