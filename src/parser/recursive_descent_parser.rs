@@ -206,21 +206,19 @@ impl<'a, TSyntax: Clone + Eq + Hash> RecursiveDescentParser<'a, TSyntax> {
             ParsingState<'b, TLex, TSyntax, std::vec::IntoIter<&'b Vec<TSyntax>>>
         >,
     ) -> ParseProductionResult<TLex, TSyntax> {
-        let mut pending_symbols: Vec<FailedState<TLex, TSyntax>> = vec![failed_state];
+        let mut pending_symbols: Vec<TSyntax> = vec![];
 
         let child_nodes: Vec<AbstractSyntaxNode<Token<TLex, TSyntax>>> =
             production_parsing_states.into_iter().map(|state| state.node).collect();
 
         for i in child_nodes.len() + 1 .. production_output.len() {
             pending_symbols.push(
-                FailedState::new(
-                    vec![],
-                    production_output.get(i).unwrap().clone(),
-                ),
+                production_output.get(i).unwrap().clone(),
             );
         }
         
         let failing_state: FailedProduction<TLex, TSyntax> = FailedProduction::new(
+            failed_state,
             child_nodes,
             pending_symbols,
         );

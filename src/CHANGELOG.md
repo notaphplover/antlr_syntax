@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 
+## [UNRELEASED]
+
+### Changed
+- Updated `FailedProduction` to with a new `failed_symbol: FailedState` property.
+- [BC] Updated `FailedProduction.pending_symbols` to be `Vec<TSyntax>`.
+
+
+
+
 ## v0.3.0
 
 ### Added

@@ -86,11 +86,24 @@ mod test {
                 }
             }
 
+            if !failed_states_equals(
+                &first_failed_production.failed_symbol,
+                &second_failed_production.failed_symbol
+            ) {
+                return false;
+            }
+
             for i in 0..first_failed_production.pending_symbols.len() {
-                if !failed_states_equals(
-                    first_failed_production.pending_symbols.get(i).unwrap(),
-                    second_failed_production.pending_symbols.get(i).unwrap(),
-                ) {
+                if first_failed_production
+                    .pending_symbols
+                    .get(i)
+                    .unwrap()
+                    .ne(
+                        second_failed_production
+                            .pending_symbols
+                            .get(i)
+                            .unwrap()
+                    ) {
                     return false;
                 }
             }
@@ -582,15 +595,14 @@ mod test {
             let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
                 vec![
                     FailedProduction::new(
+                        FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
                                 Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
                             ),
                         ], 
-                        vec![
-                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal)
-                        ],
+                        vec![],
                     ),
                 ],
                 DummySyntaxTokenTest::S,
@@ -639,6 +651,7 @@ mod test {
             let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
                 vec![
                     FailedProduction::new(
+                        FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
@@ -649,9 +662,7 @@ mod test {
                                 Token::new(Some(0u64), DummySyntaxTokenTest::BTerminal),
                             ),
                         ], 
-                        vec![
-                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal)
-                        ],
+                        vec![],
                     ),
                 ],
                 DummySyntaxTokenTest::S,
@@ -704,27 +715,24 @@ mod test {
             let expected_failed_state = <FailedState<u64, DummySyntaxTokenTest>>::new(
                 vec![
                     FailedProduction::new(
+                        FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
                                 Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
                             ),
                         ], 
-                        vec![
-                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
-                        ],
+                        vec![],
                     ),
                     FailedProduction::new(
+                        FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
                         vec![
                             AbstractSyntaxNode::new(
                                 vec![],
                                 Token::new(Some(0u64), DummySyntaxTokenTest::ATerminal),
                             ),
                         ], 
-                        vec![
-                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
-                            FailedState::new(vec![], DummySyntaxTokenTest::ATerminal),
-                        ],
+                        vec![DummySyntaxTokenTest::ATerminal],
                     ),
                 ],
                 DummySyntaxTokenTest::S,
