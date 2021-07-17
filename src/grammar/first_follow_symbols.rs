@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::{Ref, RefCell, RefMut};
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::RandomState;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::iter::{FromIterator, Map};
 use std::slice::Iter;
@@ -18,8 +18,8 @@ pub struct FirstFollowSymbols<T> {
 
 impl<T> FirstFollowSymbols<T> {
     fn converge<M, F>(model: &M, callback: F) -> ()
-        where
-            F: Fn(&M) -> bool,
+    where
+        F: Fn(&M) -> bool,
     {
         while callback(model) {}
     }
@@ -50,16 +50,14 @@ impl<T: Eq + Hash> FirstFollowSymbols<T> {
 
     fn ref_map_to_symbols_map(symbols_ref_map: HashMap<T, RefCell<HashSet<T>>>) -> SymbolsMap<T> {
         HashMap::from_iter(
-            symbols_ref_map.into_iter().map(
-                |(symbol, symbols_ref)|
-                    (symbol, symbols_ref.take())
-            )
+            symbols_ref_map
+                .into_iter()
+                .map(|(symbol, symbols_ref)| (symbol, symbols_ref.take())),
         )
     }
 }
 
 impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
-
     pub fn from(grammar: &ContextFreeGrammar<T>) -> Self {
         let first_symbols = Self::inner_get_first_symbols(grammar);
         let follow_symbols = Self::inner_get_follow_symbols(grammar, &first_symbols);
@@ -71,52 +69,54 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         let non_terminal_symbols = grammar.get_non_terminal_symbols();
         let terminal_symbols = grammar.get_terminal_symbols();
 
-        let first_symbols_map: HashMap<T, RefCell<HashSet<T>>> = Self::inner_get_first_symbols_initial_map(
-            &non_terminal_symbols,
-            &terminal_symbols,
-        );
+        let first_symbols_map: HashMap<T, RefCell<HashSet<T>>> =
+            Self::inner_get_first_symbols_initial_map(&non_terminal_symbols, &terminal_symbols);
 
-        Self::converge(&first_symbols_map, |model: &HashMap<T, RefCell<HashSet<T>>>| -> bool {
-            let mut updated_at_iter: bool = false;
+        Self::converge(
+            &first_symbols_map,
+            |model: &HashMap<T, RefCell<HashSet<T>>>| -> bool {
+                let mut updated_at_iter: bool = false;
 
-            let productions = non_terminal_symbols
-                .iter()
-                .map(|symbol| (symbol, grammar.get_productions(symbol).unwrap()));
+                let productions = non_terminal_symbols
+                    .iter()
+                    .map(|symbol| (symbol, grammar.get_productions(symbol).unwrap()));
 
-            for (symbol, tuple_productions) in productions {
-                let mut tuple_symbol_first_symbols: RefMut<HashSet<T>> =
-                    first_symbols_map.get(symbol).unwrap().borrow_mut();
+                for (symbol, tuple_productions) in productions {
+                    let mut tuple_symbol_first_symbols: RefMut<HashSet<T>> =
+                        first_symbols_map.get(symbol).unwrap().borrow_mut();
 
-                for production in tuple_productions {
-                    updated_at_iter |= Self::inner_get_first_symbols_process_production(
-                        grammar,
-                        model,
-                        &mut tuple_symbol_first_symbols,
-                        &production,
-                    );
+                    for production in tuple_productions {
+                        updated_at_iter |= Self::inner_get_first_symbols_process_production(
+                            grammar,
+                            model,
+                            &mut tuple_symbol_first_symbols,
+                            &production,
+                        );
+                    }
                 }
-            }
 
-            updated_at_iter
-        });
+                updated_at_iter
+            },
+        );
 
         Self::ref_map_to_symbols_map(first_symbols_map)
     }
 
-    fn inner_get_first_symbols_initial_map(non_terminal_symbols: &Vec<T>, terminal_symbols: &Vec<T>)
-        -> HashMap<T, RefCell<HashSet<T>>> {
-        let non_terminal_symbols_iterator
-            = Self::inner_get_first_symbols_non_terminal_map(&non_terminal_symbols);
-        let terminal_symbols_iterator
-            = Self::inner_get_first_symbols_terminal_map(&terminal_symbols);
+    fn inner_get_first_symbols_initial_map(
+        non_terminal_symbols: &Vec<T>,
+        terminal_symbols: &Vec<T>,
+    ) -> HashMap<T, RefCell<HashSet<T>>> {
+        let non_terminal_symbols_iterator =
+            Self::inner_get_first_symbols_non_terminal_map(&non_terminal_symbols);
+        let terminal_symbols_iterator =
+            Self::inner_get_first_symbols_terminal_map(&terminal_symbols);
 
-        HashMap::from_iter(
-            non_terminal_symbols_iterator.chain(terminal_symbols_iterator),
-        )
+        HashMap::from_iter(non_terminal_symbols_iterator.chain(terminal_symbols_iterator))
     }
 
-    fn inner_get_first_symbols_non_terminal_map(symbols: &Vec<T>)
-        -> Map<Iter<'_, T>, fn(&T) -> (T, RefCell<HashSet<T, RandomState>>)> {
+    fn inner_get_first_symbols_non_terminal_map(
+        symbols: &Vec<T>,
+    ) -> Map<Iter<'_, T>, fn(&T) -> (T, RefCell<HashSet<T, RandomState>>)> {
         symbols
             .iter()
             .map(|symbol| (symbol.clone(), RefCell::new(HashSet::new())))
@@ -136,19 +136,19 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
 
             match production_symbol_option {
                 Some(production_symbol) => {
-                    first_symbols_updated |= Self::inner_get_first_symbols_process_production_symbol(
-                        grammar,
-                        first_symbols_map,
-                        tuple_symbol_first_symbols,
-                        &mut output_iterator_option,
-                        &production.input,
-                        production_symbol,
-                    );
-                },
+                    first_symbols_updated |=
+                        Self::inner_get_first_symbols_process_production_symbol(
+                            grammar,
+                            first_symbols_map,
+                            tuple_symbol_first_symbols,
+                            &mut output_iterator_option,
+                            &production.input,
+                            production_symbol,
+                        );
+                }
                 None => {
-                    first_symbols_updated |= tuple_symbol_first_symbols.insert(
-                        grammar.get_epsilon_symbol().clone()
-                    );
+                    first_symbols_updated |=
+                        tuple_symbol_first_symbols.insert(grammar.get_epsilon_symbol().clone());
                     break;
                 }
             }
@@ -173,15 +173,17 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
             }
         } else {
             if grammar.is_non_terminal(production_symbol) {
-                first_symbols_updated |= Self::inner_get_first_symbols_process_production_non_terminal_symbol(
-                    grammar,
-                    first_symbols_map,
-                    tuple_symbol_first_symbols,
-                    output_iterator_option,
-                    production_symbol,
-                );
+                first_symbols_updated |=
+                    Self::inner_get_first_symbols_process_production_non_terminal_symbol(
+                        grammar,
+                        first_symbols_map,
+                        tuple_symbol_first_symbols,
+                        output_iterator_option,
+                        production_symbol,
+                    );
             } else {
-                first_symbols_updated |= tuple_symbol_first_symbols.insert(production_symbol.clone());
+                first_symbols_updated |=
+                    tuple_symbol_first_symbols.insert(production_symbol.clone());
 
                 *output_iterator_option = None
             }
@@ -210,10 +212,8 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
                     .filter(|symbol| grammar.get_epsilon_symbol().ne(*symbol)),
             );
         } else {
-            first_symbols_updated |= Self::insert_many(
-                tuple_symbol_first_symbols,
-                &mut symbol_first_symbols.iter(),
-            );
+            first_symbols_updated |=
+                Self::insert_many(tuple_symbol_first_symbols, &mut symbol_first_symbols.iter());
 
             *output_iterator_option = None
         }
@@ -221,18 +221,15 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         first_symbols_updated
     }
 
-    fn inner_get_first_symbols_terminal_map(symbols: &Vec<T>)
-        -> Map<Iter<'_, T>, fn(&T) -> (T, RefCell<HashSet<T, RandomState>>)> {
-        symbols
-            .iter()
-            .map(
-                |symbol| {
-                    let mut hash_set = HashSet::new();
-                    hash_set.insert(symbol.clone());
+    fn inner_get_first_symbols_terminal_map(
+        symbols: &Vec<T>,
+    ) -> Map<Iter<'_, T>, fn(&T) -> (T, RefCell<HashSet<T, RandomState>>)> {
+        symbols.iter().map(|symbol| {
+            let mut hash_set = HashSet::new();
+            hash_set.insert(symbol.clone());
 
-                    (symbol.clone(), RefCell::new(hash_set))
-                },
-            )
+            (symbol.clone(), RefCell::new(hash_set))
+        })
     }
 
     fn inner_get_follow_symbols(
@@ -242,7 +239,8 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         let non_terminal_symbols = grammar.get_non_terminal_symbols();
 
         let follow_symbols_map: HashMap<T, RefCell<HashSet<T>>> = HashMap::from_iter(
-            non_terminal_symbols.iter()
+            non_terminal_symbols
+                .iter()
                 .map(|symbol| (symbol.clone(), RefCell::new(HashSet::new()))),
         );
 
@@ -284,16 +282,18 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
             let output_symbol: &T = production.output.get(production_output_index).unwrap();
 
             if output_symbol.ne(&production.input) && grammar.is_non_terminal(output_symbol) {
-                let input_follow_symbols = follow_symbols_map.get(&production.input).unwrap().borrow();
-                let mut symbol_follow_symbols_ref = follow_symbols_map.get(output_symbol).unwrap().borrow_mut();
+                let input_follow_symbols =
+                    follow_symbols_map.get(&production.input).unwrap().borrow();
+                let mut symbol_follow_symbols_ref =
+                    follow_symbols_map.get(output_symbol).unwrap().borrow_mut();
 
                 input_follow_symbols.iter().for_each(|symbol| {
                     follow_symbols_updated |= symbol_follow_symbols_ref.insert(symbol.clone());
                 });
             }
 
-            let output_symbol_first_symbols: &HashSet<T> = first_symbols_map
-                .get(output_symbol).unwrap().borrow();
+            let output_symbol_first_symbols: &HashSet<T> =
+                first_symbols_map.get(output_symbol).unwrap().borrow();
 
             let output_symbol_first_symbols_contains_epsilon: bool =
                 output_symbol_first_symbols.contains(grammar.get_epsilon_symbol());
@@ -314,12 +314,13 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         follow_symbols_map: &HashMap<T, RefCell<HashSet<T>>>,
         production: &ContextFreeGrammarProduction<T>,
     ) -> bool {
-        let mut follow_symbols_updated: bool = Self::get_follow_symbols_process_production_last_epsilon_chain(
-            grammar,
-            first_symbols_map,
-            follow_symbols_map,
-            &production,
-        );
+        let mut follow_symbols_updated: bool =
+            Self::get_follow_symbols_process_production_last_epsilon_chain(
+                grammar,
+                first_symbols_map,
+                follow_symbols_map,
+                &production,
+            );
 
         let last_production_output_index: usize = production.output.len() - 1;
 
@@ -338,7 +339,7 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
                 );
 
                 if production_output_index == 0 {
-                    break
+                    break;
                 } else {
                     production_output_index -= 1;
                 }
@@ -361,15 +362,16 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         let current_symbol: &T = production.output.get(production_output_index).unwrap();
 
         if grammar.is_non_terminal(current_symbol) {
-            follow_symbols_updated = Self::get_follow_symbols_process_production_non_terminal_symbol(
-                grammar,
-                first_symbols_map,
-                follow_symbols_map,
-                production,
-                production_output_index,
-                first_indexes,
-                current_symbol,
-            );
+            follow_symbols_updated =
+                Self::get_follow_symbols_process_production_non_terminal_symbol(
+                    grammar,
+                    first_symbols_map,
+                    follow_symbols_map,
+                    production,
+                    production_output_index,
+                    first_indexes,
+                    current_symbol,
+                );
         } else {
             follow_symbols_updated = false;
 
@@ -402,10 +404,8 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
 
             first_indexes.push(next_symbol_index);
 
-            let mut current_symbol_follow_symbols = follow_symbols_map
-                .get(current_symbol)
-                .unwrap()
-                .borrow_mut();
+            let mut current_symbol_follow_symbols =
+                follow_symbols_map.get(current_symbol).unwrap().borrow_mut();
 
             follow_symbols_updated |= Self::update_follow_symbols_lambda_chain(
                 grammar,
@@ -419,7 +419,10 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         follow_symbols_updated
     }
 
-    fn insert_many(hash_set_ref: &mut RefMut<HashSet<T>>, iterator: &mut dyn Iterator<Item=&T>) -> bool {
+    fn insert_many(
+        hash_set_ref: &mut RefMut<HashSet<T>>,
+        iterator: &mut dyn Iterator<Item = &T>,
+    ) -> bool {
         let mut item_inserted: bool = false;
 
         iterator.for_each(|symbol_first_symbol| {
@@ -441,7 +444,8 @@ impl<T: Clone + Eq + Hash> FirstFollowSymbols<T> {
         first_indexes.iter().for_each(|index| {
             let symbol: &T = production.output.get(*index).unwrap();
 
-            first_symbols_map.get(symbol)
+            first_symbols_map
+                .get(symbol)
                 .unwrap()
                 .iter()
                 .filter(|symbol| (grammar.get_epsilon_symbol()).ne(*symbol))

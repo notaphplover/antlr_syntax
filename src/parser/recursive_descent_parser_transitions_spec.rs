@@ -36,7 +36,9 @@ mod test {
             }
 
             for i in 0..first_production.output.len() {
-                if first_production.output.get(i).unwrap() != second_production.output.get(i).unwrap() {
+                if first_production.output.get(i).unwrap()
+                    != second_production.output.get(i).unwrap()
+                {
                     return false;
                 }
             }
@@ -47,14 +49,20 @@ mod test {
         #[test]
         fn it_adds_first_symbols_productions() -> () {
             let grammar_productions: Vec<ContextFreeGrammarProduction<SyntaxTokenTest>> = vec![
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
+                ContextFreeGrammarProduction::new(
+                    SyntaxTokenTest::Module,
+                    vec![
+                        SyntaxTokenTest::Expression,
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                    ],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Expression,
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Expression, vec![
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
-                ]),
+                    vec![
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
+                    ],
+                ),
             ];
 
             let grammar: ContextFreeGrammar<SyntaxTokenTest> = ContextFreeGrammar::new(
@@ -66,45 +74,60 @@ mod test {
             let first_follow_symbols: FirstFollowSymbols<SyntaxTokenTest> =
                 FirstFollowSymbols::from(&grammar);
 
-            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<SyntaxTokenTest>
-                = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
+            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<
+                SyntaxTokenTest,
+            > = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
 
-            let module_id_productions =
-                recursive_descent_parser_transitions
-                    .get_productions(
-                        &SyntaxTokenTest::Module,
-                        &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id)
-                    ).unwrap();
+            let module_id_productions = recursive_descent_parser_transitions
+                .get_productions(
+                    &SyntaxTokenTest::Module,
+                    &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                )
+                .unwrap();
 
             let first_module_id_production = module_id_productions.get(0).unwrap();
-            let expected_first_module_id_production = ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
-                SyntaxTokenTest::Expression,
-                SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-            ]);
+            let expected_first_module_id_production = ContextFreeGrammarProduction::new(
+                SyntaxTokenTest::Module,
+                vec![
+                    SyntaxTokenTest::Expression,
+                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                ],
+            );
 
             assert_eq!(module_id_productions.len(), 1);
-            assert!(equals(first_module_id_production, &expected_first_module_id_production));
+            assert!(equals(
+                first_module_id_production,
+                &expected_first_module_id_production
+            ));
         }
 
         #[test]
         fn it_adds_follow_symbols_productions() -> () {
             let grammar_productions: Vec<ContextFreeGrammarProduction<SyntaxTokenTest>> = vec![
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
+                ContextFreeGrammarProduction::new(
+                    SyntaxTokenTest::Module,
+                    vec![
+                        SyntaxTokenTest::Sentence,
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                    ],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Sentence,
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Sentence, vec![
-                    SyntaxTokenTest::Epsilon,
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Sentence, vec![
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eq),
+                    vec![SyntaxTokenTest::Epsilon],
+                ),
+                ContextFreeGrammarProduction::new(
+                    SyntaxTokenTest::Sentence,
+                    vec![
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eq),
+                        SyntaxTokenTest::Expression,
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
+                    ],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Expression,
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Expression, vec![
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
-                ]),
+                    vec![SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id)],
+                ),
             ];
 
             let grammar: ContextFreeGrammar<SyntaxTokenTest> = ContextFreeGrammar::new(
@@ -116,46 +139,61 @@ mod test {
             let first_follow_symbols: FirstFollowSymbols<SyntaxTokenTest> =
                 FirstFollowSymbols::from(&grammar);
 
-            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<SyntaxTokenTest>
-                = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
+            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<
+                SyntaxTokenTest,
+            > = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
 
-            let module_eof_productions =
-                recursive_descent_parser_transitions
-                    .get_productions(
-                        &SyntaxTokenTest::Module,
-                        &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id)
-                    ).unwrap();
+            let module_eof_productions = recursive_descent_parser_transitions
+                .get_productions(
+                    &SyntaxTokenTest::Module,
+                    &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                )
+                .unwrap();
 
             let first_module_eof_production = module_eof_productions.get(0).unwrap();
-            let expected_first_module_id_production = ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
-                SyntaxTokenTest::Sentence,
-                SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-            ]);
+            let expected_first_module_id_production = ContextFreeGrammarProduction::new(
+                SyntaxTokenTest::Module,
+                vec![
+                    SyntaxTokenTest::Sentence,
+                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                ],
+            );
 
             assert_eq!(module_eof_productions.len(), 1);
-            assert!(equals(first_module_eof_production, &expected_first_module_id_production));
+            assert!(equals(
+                first_module_eof_production,
+                &expected_first_module_id_production
+            ));
         }
 
         #[test]
         fn it_adds_once_on_first_follow_conflict() -> () {
             let grammar_productions: Vec<ContextFreeGrammarProduction<SyntaxTokenTest>> = vec![
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
+                ContextFreeGrammarProduction::new(
+                    SyntaxTokenTest::Module,
+                    vec![
+                        SyntaxTokenTest::Sentence,
+                        SyntaxTokenTest::Sentence,
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                    ],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Sentence,
+                    vec![SyntaxTokenTest::Epsilon],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Sentence,
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Sentence, vec![
-                    SyntaxTokenTest::Epsilon,
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Sentence, vec![
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eq),
+                    vec![
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eq),
+                        SyntaxTokenTest::Expression,
+                        SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
+                    ],
+                ),
+                ContextFreeGrammarProduction::new(
                     SyntaxTokenTest::Expression,
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eos),
-                ]),
-                ContextFreeGrammarProduction::new(SyntaxTokenTest::Expression, vec![
-                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
-                ]),
+                    vec![SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id)],
+                ),
             ];
 
             let grammar: ContextFreeGrammar<SyntaxTokenTest> = ContextFreeGrammar::new(
@@ -167,25 +205,32 @@ mod test {
             let first_follow_symbols: FirstFollowSymbols<SyntaxTokenTest> =
                 FirstFollowSymbols::from(&grammar);
 
-            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<SyntaxTokenTest>
-                = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
+            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<
+                SyntaxTokenTest,
+            > = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
 
-            let module_id_productions =
-                recursive_descent_parser_transitions
-                    .get_productions(
-                        &SyntaxTokenTest::Module,
-                        &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id)
-                    ).unwrap();
+            let module_id_productions = recursive_descent_parser_transitions
+                .get_productions(
+                    &SyntaxTokenTest::Module,
+                    &SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Id),
+                )
+                .unwrap();
 
             let first_module_id_production = module_id_productions.get(0).unwrap();
-            let expected_first_module_id_production = ContextFreeGrammarProduction::new(SyntaxTokenTest::Module, vec![
-                SyntaxTokenTest::Sentence,
-                SyntaxTokenTest::Sentence,
-                SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
-            ]);
+            let expected_first_module_id_production = ContextFreeGrammarProduction::new(
+                SyntaxTokenTest::Module,
+                vec![
+                    SyntaxTokenTest::Sentence,
+                    SyntaxTokenTest::Sentence,
+                    SyntaxTokenTest::Terminal(TerminalTokenTypeTest::Eof),
+                ],
+            );
 
             assert_eq!(module_id_productions.len(), 1);
-            assert!(equals(first_module_id_production, &expected_first_module_id_production));
+            assert!(equals(
+                first_module_id_production,
+                &expected_first_module_id_production
+            ));
         }
 
         #[test]
@@ -199,13 +244,14 @@ mod test {
             }
 
             let grammar_productions: Vec<ContextFreeGrammarProduction<DummySyntaxTokenTest>> = vec![
-                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::S, vec![
+                ContextFreeGrammarProduction::new(
+                    DummySyntaxTokenTest::S,
+                    vec![DummySyntaxTokenTest::Empty, DummySyntaxTokenTest::Eof],
+                ),
+                ContextFreeGrammarProduction::new(
                     DummySyntaxTokenTest::Empty,
-                    DummySyntaxTokenTest::Eof,
-                ]),
-                ContextFreeGrammarProduction::new(DummySyntaxTokenTest::Empty, vec![
-                    DummySyntaxTokenTest::Epsilon,
-                ]),
+                    vec![DummySyntaxTokenTest::Epsilon],
+                ),
             ];
 
             let grammar: ContextFreeGrammar<DummySyntaxTokenTest> = ContextFreeGrammar::new(
@@ -217,32 +263,25 @@ mod test {
             let first_follow_symbols: FirstFollowSymbols<DummySyntaxTokenTest> =
                 FirstFollowSymbols::from(&grammar);
 
-            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<DummySyntaxTokenTest>
-                = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
+            let recursive_descent_parser_transitions: RecursiveDescentParserTransitions<
+                DummySyntaxTokenTest,
+            > = RecursiveDescentParserTransitions::from(&grammar, &first_follow_symbols);
 
-            let empty_eof_productions
-                = recursive_descent_parser_transitions
-                    .get_productions(
-                        &DummySyntaxTokenTest::Empty,
-                        &DummySyntaxTokenTest::Eof,
-                    )
-                    .unwrap();
+            let empty_eof_productions = recursive_descent_parser_transitions
+                .get_productions(&DummySyntaxTokenTest::Empty, &DummySyntaxTokenTest::Eof)
+                .unwrap();
 
             let first_empty_eof_production = empty_eof_productions.get(0).unwrap();
             let expected_first_empty_eof_production = ContextFreeGrammarProduction::new(
                 DummySyntaxTokenTest::Empty,
-                vec![
-                    DummySyntaxTokenTest::Epsilon,
-                ]
+                vec![DummySyntaxTokenTest::Epsilon],
             );
 
             assert_eq!(empty_eof_productions.len(), 1);
-            assert!(
-                equals(
-                    first_empty_eof_production,
-                    &expected_first_empty_eof_production,
-                )
-            );
+            assert!(equals(
+                first_empty_eof_production,
+                &expected_first_empty_eof_production,
+            ));
         }
     }
 }

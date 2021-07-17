@@ -63,8 +63,10 @@ impl<T: Clone + Eq + Hash> ContextFreeGrammar<T> {
 
         Self::new_check_productions_map(&epsilon_symbol, &productions_hash_map);
 
-        let non_terminal_symbols: Vec<T> = productions_hash_map.keys().map(|key| key.clone()).collect();
-        let non_terminal_symbols_set: HashSet<T> = HashSet::from_iter(non_terminal_symbols.into_iter());
+        let non_terminal_symbols: Vec<T> =
+            productions_hash_map.keys().map(|key| key.clone()).collect();
+        let non_terminal_symbols_set: HashSet<T> =
+            HashSet::from_iter(non_terminal_symbols.into_iter());
         let terminal_symbols_set: HashSet<T> = ContextFreeGrammar::build_terminal_symbols_set(
             &non_terminal_symbols_set,
             &productions_hash_map,
@@ -119,7 +121,9 @@ impl<T: Clone + Eq + Hash> ContextFreeGrammar<T> {
         }
     }
 
-    fn new_process_productions_map(productions: Vec<ContextFreeGrammarProduction<T>>) -> HashMap<T, Vec<ContextFreeGrammarProduction<T>>> {
+    fn new_process_productions_map(
+        productions: Vec<ContextFreeGrammarProduction<T>>,
+    ) -> HashMap<T, Vec<ContextFreeGrammarProduction<T>>> {
         let mut productions_hash_map: HashMap<T, Vec<ContextFreeGrammarProduction<T>>> =
             HashMap::new();
 

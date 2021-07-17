@@ -21,9 +21,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [UNRELEASED]
 
+### Added
+- Added `FixGap`.
+- Added `FixedProduction`.
+- Added `FixedProductionPart`.
+- Added `FixResult`.
+- Added `FixedSymbol`.
+- Added `ProductionParsedSymbol`.
+- Added `SyntaxErrorSolver`.
+
 ### Changed
-- Updated `FailedProduction` to with a new `failed_symbol: FailedState` property.
+- Updated `FailedProduction` with a new `failed_symbol: FailedState` property.
 - [BC] Updated `FailedProduction.pending_symbols` to be `Vec<TSyntax>`.
+- [BC] Updated `FailedProduction.parsed_symbols` to be `Vec<ProductionParsedSymbol<TLex, TSyntax>>`.
+- [BC] Updated `ParseResult` to be an enum in order to allow fixes.
 
 
 
